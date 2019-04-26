@@ -193,7 +193,13 @@ RCT_EXPORT_METHOD(checkForExistingDownloads: (RCTPromiseResolveBlock)resolve rej
 #pragma mark - NSURLSessionDownloadDelegate methods
 - (void)URLSession:(nonnull NSURLSession *)session downloadTask:(nonnull NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(nonnull NSURL *)location {
     RNBGDTaskConfig *taskCofig = taskToConfigMap[downloadTask];
-    if (taskCofig != nil) {
+    long httpCode = ((NSHTTPURLResponse *)downloadTask.response).statusCode;
+    NSString *httpCodeString = [NSString stringWithFormat: @"%ld", httpCode];
+    if(httpCode >= 400 && self.bridge) {
+        [self sendEventWithName:@"downloadFailed" body:@{@"id": taskCofig.id, @"error": httpCodeString}];
+        [self removeTaskFromMap:downloadTask];
+    }
+    else if (taskCofig != nil) {
         NSFileManager *fileManager = [NSFileManager defaultManager];
         NSURL *destURL = [NSURL fileURLWithPath:taskCofig.destination];
         [fileManager createDirectoryAtURL:[destURL URLByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:nil];
@@ -210,6 +216,7 @@ RCT_EXPORT_METHOD(checkForExistingDownloads: (RCTPromiseResolveBlock)resolve rej
         [self removeTaskFromMap:downloadTask];
     }
 }
+
 
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didResumeAtOffset:(int64_t)fileOffset expectedTotalBytes:(int64_t)expectedTotalBytes {
 }
